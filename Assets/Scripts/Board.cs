@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace TicTacToe
@@ -24,11 +25,27 @@ namespace TicTacToe
         private void OnEnable()
         {
             GameEvents.CellClicked += OnCellClicked;
+            GameEvents.UndoPlay += RevertPlayer;
+            GameEvents.UndoGameOver += OnUndoGameOver;
+            GameEvents.RestartGame += ResetBoard;
         }
 
         private void OnDisable()
         {
             GameEvents.CellClicked -= OnCellClicked;
+            GameEvents.UndoPlay -= RevertPlayer;
+            GameEvents.UndoGameOver -= OnUndoGameOver;
+            GameEvents.RestartGame -= ResetBoard;
+        }
+
+        private void RevertPlayer(string previousPlayer)
+        {
+            _currentPlayer = previousPlayer;
+        }
+
+        private void OnUndoGameOver()
+        {
+            _isGameOver = false;
         }
 
         private void OnCellClicked(Cell cell)
@@ -45,31 +62,46 @@ namespace TicTacToe
                 return;
             }
 
-            cell.SetMark(_currentPlayer);
-            GameEvents.MoveMade?.Invoke();
+            string previousPlayer = _currentPlayer;
 
+            cell.SetMark(_currentPlayer);
             string winner = CheckWinner();
+            bool isDraw = IsBoardFull();
+            cell.Clear();
+
+            List<ICommand> turnCommands = new List<ICommand>();
+
+            CellClickedCommand cellCommand = new CellClickedCommand(cell, _currentPlayer, previousPlayer);
+            turnCommands.Add(cellCommand);
+
             if (winner != "")
             {
                 _isGameOver = true;
-                GameEvents.GameWon?.Invoke(winner);
-                ResetBoard();
-                return;
+                turnCommands.Add(new ScoreChangedCommand(winner));
             }
-
-            if (IsBoardFull())
+            else if (isDraw)
             {
                 _isGameOver = true;
-                GameEvents.GameDrawn?.Invoke();
-                ResetBoard();
-                return;
+                turnCommands.Add(new DrawCommand());
             }
 
+            CommandListManager.ExecuteCommand(new SavedCommandForUndo(turnCommands));
+            GameEvents.MoveMade?.Invoke();
+
+            if (!_isGameOver)
+            {
+                SwitchPlayer();
+            }
+        }
+
+        private void SwitchPlayer()
+        {
             _currentPlayer = _currentPlayer == "X" ? "O" : "X";
         }
 
         private void ResetBoard()
         {
+            CommandListManager.Clear();
             for (int i = 0; i < _cells.Length; i++)
             {
                 _cells[i].Clear();

@@ -11,12 +11,14 @@ namespace TicTacToe
         {
             GameEvents.GameWon += OnGameWon;
             GameEvents.GameDrawn += OnGameDrawn;
+            GameEvents.UndoScore += OnUndoScore;
         }
 
         private void OnDisable()
         {
             GameEvents.GameWon -= OnGameWon;
             GameEvents.GameDrawn -= OnGameDrawn;
+            GameEvents.UndoScore -= OnUndoScore;
         }
 
         private void Start()
@@ -42,6 +44,20 @@ namespace TicTacToe
         private void OnGameDrawn()
         {
             GameEvents.ResultReady?.Invoke("Draw!");
+        }
+
+        private void OnUndoScore(string winner)
+        {
+            if (winner == "X")
+            {
+                _scoreX--;
+            }
+            else
+            {
+                _scoreO--;
+            }
+
+            GameEvents.ScoreChanged?.Invoke(_scoreX, _scoreO);
         }
     }
 }
